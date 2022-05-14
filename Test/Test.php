@@ -17,7 +17,7 @@ class Test extends TestCase
 
         $promoCode = new Promocode();
         $promoCode->setName("WeatherCodeAgeSimple");
-        $promoCode->setAvantage(['percent' =>  25]);
+        $promoCode->setAvantage(['percent' => 25]);
         $promoCode->setRestrictions([
             '@age' => [
                 'gt' => 10,
@@ -49,7 +49,44 @@ class Test extends TestCase
 
         $promoCode = new Promocode();
         $promoCode->setName("WeatherCodeAgeSimple");
-        $promoCode->setAvantage(['percent' =>  25]);
+        $promoCode->setAvantage(['percent' => 25]);
+        $promoCode->setRestrictions([
+            '@age' => [
+                'gt' => 10,
+                'lt' => 20,
+            ],
+            '@date' => [
+                'after' => '2021-01-01',
+                'before' => '2022-01-01'
+            ],
+        ]);
+
+        $redeemInfo = new RedeemInfo();
+        $redeemInfo->setPromocodeName('WeatherCodeAge');
+        $redeemInfo->setArguments([
+            'age' => 11,
+            'date' => '2021-03-02'
+        ]);
+
+        $this->assertSame(
+            [
+                'avantage' => [
+                    'percent' => 25
+                ],
+                'promocode_name' => 'WeatherCodeAgeSimple',
+                'status' => 'accepted'
+            ],
+            $reductionService->reductionAskAnswer($redeemInfo, $promoCode)
+        );
+    }
+
+    public function testSimpleErrorReductionAskAnswer()
+    {
+        $reductionService = new ReductionService();
+
+        $promoCode = new Promocode();
+        $promoCode->setName("WeatherCodeAgeSimple");
+        $promoCode->setAvantage(['percent' => 25]);
         $promoCode->setRestrictions([
             '@age' => [
                 'gt' => 10,
@@ -65,16 +102,18 @@ class Test extends TestCase
         $redeemInfo->setPromocodeName('WeatherCodeAge');
         $redeemInfo->setArguments([
             'age' => 9,
-            'date' => '2020-03-02'
+            'date' => '2021-03-02'
         ]);
 
         $this->assertSame(
             [
-                'avantage' => [
-                    'percent' => 25
-                ],
                 'promocode_name' => 'WeatherCodeAgeSimple',
-                'status' => 'accepted'
+                'status' => 'denied',
+                'reasons' => [
+                    '@age' => [
+                        'gt' => 'IsNotGt'
+                    ],
+                ],
             ],
             $reductionService->reductionAskAnswer($redeemInfo, $promoCode)
         );
@@ -86,15 +125,15 @@ class Test extends TestCase
 
         $promoCode = new Promocode();
         $promoCode->setName("WeatherCodeAgeComplex");
-        $promoCode->setAvantage(['percent' =>  20]);
+        $promoCode->setAvantage(['percent' => 20]);
         $promoCode->setRestrictions([
             '@or' => [
-                0 => [
+                [
                     '@age' => [
                         'eq' => 40,
                     ],
                 ],
-                1 => [
+                [
                     '@age' => [
                         'gt' => 15,
                         'lt' => 30,
@@ -105,30 +144,139 @@ class Test extends TestCase
                 'after' => '2021-01-01',
                 'before' => '2022-01-01'
             ],
-            '@meteo' => [
-                'is' => 'clear',
-                'temp' => [
-                    'lt' => 100
-                ],
-            ],
         ]);
 
         $redeemInfo = new RedeemInfo();
         $redeemInfo->setPromocodeName('WeatherCodeAgeComplex');
         $redeemInfo->setArguments([
             'age' => 16,
-            'meteo' => [
-                'town' => 'Lyon'
-            ],
         ]);
 
         $this->assertSame(
             [
-                'avantage' => [
-                    'percent' => 20
-                ],
                 'promocode_name' => 'WeatherCodeAgeComplex',
-                'status' => 'accepted'
+                'status' => 'denied',
+                'reasons' => [
+                    '@date' => [
+                        '@date' => 'Date value is missing',
+                    ],
+                ],
+            ],
+            $reductionService->reductionAskAnswer($redeemInfo, $promoCode)
+        );
+    }
+
+    public function testComplexErrorReductionAskAnswer()
+    {
+        $reductionService = new ReductionService();
+
+        $promoCode = new Promocode();
+        $promoCode->setName("WeatherCodeAgeComplex");
+        $promoCode->setAvantage(['percent' => 20]);
+        $promoCode->setRestrictions([
+            '@or' => [
+                [
+                    '@age' => [
+                        'eq' => 40,
+                    ],
+                ],
+                [
+                    '@age' => [
+                        'gt' => 15,
+                        'lt' => 30,
+                    ],
+                ],
+            ],
+            '@date' => [
+                'after' => '2021-01-01',
+                'before' => '2022-01-01'
+            ],
+        ]);
+
+        $redeemInfo = new RedeemInfo();
+        $redeemInfo->setPromocodeName('WeatherCodeAgeComplex');
+        $redeemInfo->setArguments([
+            'age' => 1,
+        ]);
+
+        $this->assertSame(
+            [
+                'promocode_name' => 'WeatherCodeAgeComplex',
+                'status' => 'denied',
+                'reasons' => [
+                    '@or' => [
+                        0 => [
+                            'eq' => 'IsNotEq',
+                        ],
+                        1 => [
+                            'gt' => 'IsNotGt',
+                        ],
+                    ],
+                    '@date' => [
+                        '@date' => 'Date value is missing',
+                    ],
+                ],
+            ],
+            $reductionService->reductionAskAnswer($redeemInfo, $promoCode)
+        );
+    }
+
+    public function testComplexMeteoErrorReductionAskAnswer()
+    {
+        $reductionService = new ReductionService();
+
+        $promoCode = new Promocode();
+        $promoCode->setName("WeatherCodeAgeComplex");
+        $promoCode->setAvantage(['percent' => 20]);
+        $promoCode->setRestrictions([
+            '@or' => [
+                [
+                    '@age' => [
+                        'eq' => 40,
+                    ],
+                ],
+                [
+                    '@age' => [
+                        'gt' => 15,
+                        'lt' => 30,
+                    ],
+                ],
+            ],
+            '@date' => [
+                'after' => '2021-01-01',
+                'before' => '2022-01-01'
+            ],
+//            '@meteo' => [
+//                'is' => 'clear',
+//                'temp' => [
+//                    'lt' => 100
+//                ],
+//            ],
+        ]);
+
+        $redeemInfo = new RedeemInfo();
+        $redeemInfo->setPromocodeName('WeatherCodeAgeComplex');
+        $redeemInfo->setArguments([
+            'age' => 1,
+        ]);
+
+        $this->assertSame(
+            [
+                'promocode_name' => 'WeatherCodeAgeComplex',
+                'status' => 'denied',
+                'reasons' => [
+                    '@or' => [
+                        0 => [
+                            'eq' => 'IsNotEq',
+                        ],
+                        1 => [
+                            'gt' => 'IsNotGt',
+                        ],
+                    ],
+                    '@date' => [
+                        '@date' => 'Date value is missing',
+                    ],
+                ],
             ],
             $reductionService->reductionAskAnswer($redeemInfo, $promoCode)
         );

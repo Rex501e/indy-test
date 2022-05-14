@@ -7,7 +7,7 @@ use Entity\RedeemInfo;
 
 class ReductionService
 {
-    public function reductionAskAnswer(RedeemInfo $redeemInfo, Promocode $promocode)
+    public function reductionAskAnswer(RedeemInfo $redeemInfo, Promocode $promocode): array
     {
         $errorMain = [];
         foreach ($promocode->getRestrictions() as $key => $restriction){
@@ -68,26 +68,49 @@ class ReductionService
         $error = [];
         switch ($key) {
             case '@age':
-                if ($redeemInfo->getArguments()['age'] == null) {
-                    $error[$key] = 'Age value is missing';
+                if (!isset($redeemInfo->getArguments()['age'])) {
+                    $error = 'Age value is missing';
                 } else {
                     $checkNumberRestrictions = $this->checkNumberRestrictions($redeemInfo->getArguments()['age'], $restriction);
                     if ($checkNumberRestrictions != []) {
-                        $error[$key] = $checkNumberRestrictions;
+                        $error = $checkNumberRestrictions;
                     }
                 }
 
                 break;
 
             case '@date':
-                if ($redeemInfo->getArguments()['date'] == null) {
-                    $error[$key] = 'Age value is missing';
+                if (!isset($redeemInfo->getArguments()['date'])) {
+                    $error[$key] = 'Date value is missing';
                 } else {
                     $checkDateRestrictions = $this->checkDateRestrictions($redeemInfo->getArguments()['date'], $restriction);
                     if ($checkDateRestrictions != []) {
                         $error[$key] = $checkDateRestrictions;
                     }
                 }
+
+                break;
+
+            case '@meteo':
+                break;
+
+            case '@or':
+                $error = [];
+                $subRestrictionCount = count($restriction);
+
+                foreach ($restriction as $key => $subRestriction){
+                    $result = $this->testRestriction(array_keys($subRestriction)[0], $redeemInfo, array_values($subRestriction)[0]);
+
+                    if($result != []){
+                        $error[$key] = $result;
+                    }
+                }
+
+                // dans le cas d'un OU, s'il y a une restriction qui est OK, on retourne aucune erreur
+                if(count($error) < $subRestrictionCount){
+                    $error = [];
+                }
+                break;
         }
 
         // si $error n'est pas vide, c'est qu'il y a eu une erreur dans l'un des cas
