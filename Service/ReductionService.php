@@ -92,6 +92,14 @@ class ReductionService
                 break;
 
             case '@meteo':
+                if (!isset($redeemInfo->getArguments()['meteo']['town'])) {
+                    $error[$key] = 'Town value is missing';
+                } else {
+                    $checkMeteoRestrictions = $this->checkMeteoRestrictions($redeemInfo->getArguments()['meteo']['town'], $restriction);
+                    if ($checkMeteoRestrictions != []) {
+                        $error = $checkMeteoRestrictions;
+                    }
+                }
                 break;
 
             case '@or':
@@ -139,4 +147,57 @@ class ReductionService
 
         return $error;
     }
+
+    private function checkMeteoRestrictions(mixed $town, mixed $restriction)
+    {
+        $error = [];
+        // récupération de la météo actuelle de la ville
+        $urlCoordonatesTown = 'http://api.openweathermap.org/geo/1.0/direct?q=' . $town . '&limit=1&appid=d0562f476913da692a065c608d0539f6';
+
+        $resp = $this->curlRequest($urlCoordonatesTown);
+
+        $longitude = doubleval($resp[0]['lon']);
+        $latitude = doubleval($resp[0]['lat']);
+
+        $urlWeatherTown = 'https://api.openweathermap.org/data/2.5/weather?lat=' . $latitude . '&lon=' . $longitude . '&appid=d0562f476913da692a065c608d0539f6';
+
+        $resp = $this->curlRequest($urlWeatherTown);
+
+        $weatherIs = strtolower($resp['weather'][0]['main']);
+
+        // conversion Kelvin -> Celsius
+        $temperatureCelsius = $resp['main']['temp'] - 273.15;
+
+        if (isset($restriction['is']) && $restriction['is'] != $weatherIs) {
+            $error['is'] = 'isNot'.$restriction['is'];
+        }
+
+        if (isset($restriction['temp'])){
+            $checkNumberRestrictions = $this->checkNumberRestrictions($temperatureCelsius, $restriction['temp']);
+            if ($checkNumberRestrictions != []) {
+                $error['temp'] = $checkNumberRestrictions;
+            }
+        }
+
+        return $error;
+    }
+
+    private function curlRequest(string $urlCoordonatesTown): mixed
+    {
+        $curl = curl_init($urlCoordonatesTown);
+        curl_setopt($curl, CURLOPT_URL, $urlCoordonatesTown);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+
+        // option rajouter car sinon il y avait une erreur de certificat puisque j'interroge depuis du HTTP -> HTTPS
+        // En production, il faudrait générer un certificat pour le HTTPS
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+
+        $resp = curl_exec($curl);
+        curl_close($curl);
+
+        return json_decode($resp, true);
+    }
+
+
 }

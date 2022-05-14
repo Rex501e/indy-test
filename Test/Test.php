@@ -221,6 +221,56 @@ class Test extends TestCase
         );
     }
 
+    public function testComplexMeteoReductionAskAnswer()
+    {
+        $reductionService = new ReductionService();
+
+        $promoCode = new Promocode();
+        $promoCode->setName("WeatherCodeAgeComplex");
+        $promoCode->setAvantage(['percent' => 20]);
+        $promoCode->setRestrictions([
+            '@or' => [
+                [
+                    '@age' => [
+                        'eq' => 40,
+                    ],
+                ],
+                [
+                    '@age' => [
+                        'gt' => 15,
+                        'lt' => 30,
+                    ],
+                ],
+            ],
+            '@meteo' => [
+                'is' => 'clear',
+                'temp' => [
+                    'lt' => 100
+                ],
+            ],
+        ]);
+
+        $redeemInfo = new RedeemInfo();
+        $redeemInfo->setPromocodeName('WeatherCodeAgeComplex');
+        $redeemInfo->setArguments([
+            'age' => 40,
+            'meteo' => [
+                'town' => 'Lyon'
+            ],
+        ]);
+
+        $this->assertSame(
+            [
+                'avantage' => [
+                    'percent' => 20
+                ],
+                'promocode_name' => 'WeatherCodeAgeComplex',
+                'status' => 'accepted'
+            ],
+            $reductionService->reductionAskAnswer($redeemInfo, $promoCode)
+        );
+    }
+
     public function testComplexMeteoErrorReductionAskAnswer()
     {
         $reductionService = new ReductionService();
@@ -242,22 +292,21 @@ class Test extends TestCase
                     ],
                 ],
             ],
-            '@date' => [
-                'after' => '2021-01-01',
-                'before' => '2022-01-01'
+            '@meteo' => [
+                'is' => 'Rain',
+                'temp' => [
+                    'gt' => 100
+                ],
             ],
-//            '@meteo' => [
-//                'is' => 'clear',
-//                'temp' => [
-//                    'lt' => 100
-//                ],
-//            ],
         ]);
 
         $redeemInfo = new RedeemInfo();
         $redeemInfo->setPromocodeName('WeatherCodeAgeComplex');
         $redeemInfo->setArguments([
-            'age' => 1,
+            'age' => 40,
+            'meteo' => [
+                'town' => 'Lyon'
+            ],
         ]);
 
         $this->assertSame(
@@ -265,16 +314,11 @@ class Test extends TestCase
                 'promocode_name' => 'WeatherCodeAgeComplex',
                 'status' => 'denied',
                 'reasons' => [
-                    '@or' => [
-                        0 => [
-                            'eq' => 'IsNotEq',
+                    '@meteo' => [
+                        'is' => 'isNotRain',
+                        'temp' => [
+                            'gt' => 'IsNotGt'
                         ],
-                        1 => [
-                            'gt' => 'IsNotGt',
-                        ],
-                    ],
-                    '@date' => [
-                        '@date' => 'Date value is missing',
                     ],
                 ],
             ],
