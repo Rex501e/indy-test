@@ -325,4 +325,66 @@ class Test extends TestCase
             $reductionService->reductionAskAnswer($redeemInfo, $promoCode)
         );
     }
+
+    public function testComplexLevel2ErrorReductionAskAnswer()
+    {
+        $reductionService = new ReductionService();
+
+        $promoCode = new Promocode();
+        $promoCode->setName("WeatherCodeAgeComplex");
+        $promoCode->setAvantage(['percent' => 20]);
+        $promoCode->setRestrictions([
+            '@or' => [
+                [
+                    '@age' => [
+                        'eq' => 40,
+                    ],
+                ],
+                [
+                    '@or' => [
+                        [
+                            '@age' => [
+                                'eq' => 40,
+                            ],
+                        ],
+                        [
+                            '@age' => [
+                                'gt' => 15,
+                                'lt' => 30,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $redeemInfo = new RedeemInfo();
+        $redeemInfo->setPromocodeName('WeatherCodeAgeComplex');
+        $redeemInfo->setArguments([
+            'age' => 1,
+        ]);
+
+        $this->assertSame(
+            [
+                'promocode_name' => 'WeatherCodeAgeComplex',
+                'status' => 'denied',
+                'reasons' => [
+                    '@or' => [
+                        0 => [
+                            'eq' => 'IsNotEq'
+                        ],
+                        1 => [
+                            0 => [
+                                'eq' => 'IsNotEq'
+                            ],
+                            1 => [
+                                'gt' => 'IsNotGt'
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            $reductionService->reductionAskAnswer($redeemInfo, $promoCode)
+        );
+    }
 }
