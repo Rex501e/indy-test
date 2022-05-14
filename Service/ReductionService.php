@@ -76,6 +76,7 @@ class ReductionService
                         $error[$key] = $checkNumberRestrictions;
                     }
                 }
+
                 break;
 
             case '@date':
