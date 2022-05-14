@@ -28,7 +28,7 @@ class Test extends TestCase
         $redeemInfo = new RedeemInfo();
         $redeemInfo->setPromocodeName('WeatherCodeAge');
         $redeemInfo->setArguments([
-            '@age' => 15
+            'age' => 15
         ]);
 
         $this->assertSame(
